@@ -8,15 +8,34 @@ const jwt = require('jsonwebtoken');
 const passport = require('passport');
 const passportJWT = require('passport-jwt');
 const HTTP_PORT = process.env.PORT || 8080;
+
 let ExtractJwt = passportJWT.ExtractJwt;
 let JwtStrategy = passportJWT.Strategy;
-let secretOrKey = process.env.JWT_SECRET
-app.use(express.json());
-app.use(cors());
 
-// add passport as application-level middleware
+
+var jwtOptions = {};
+jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderWithScheme("jwt");
+jwtOptions.secretOrKey = process.env.JWT_SECRET
+
+var strategy = new JwtStrategy(jwtOptions, function (jwt_payload, next) {
+    console.log('payload received', jwt_payload);
+
+    if (jwt_payload) {
+       next(null, { 
+            _id: jwt_payload._id, 
+            userName: jwt_payload.userName
+        }); 
+    } else {
+        next(null, false);
+    }
+});
+
+
+passport.use(strategy);
 app.use(passport.initialize());
 
+app.use(express.json());
+app.use(cors());
 
 app.post("/api/user/register", (req, res) => {
     userService.registerUser(req.body)
@@ -35,7 +54,7 @@ app.post("/api/user/login", (req, res) => {
             userName: user.userName
         };
         
-        let token = jwt.sign(payload, secretOrKey);
+        let token = jwt.sign(payload, jwtOptions.secretOrKey);
 
         res.json({ "message": "login successful", token: token });
     }).catch(msg => {
